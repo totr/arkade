@@ -5,6 +5,7 @@ package apps
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -18,7 +19,7 @@ import (
 
 	"github.com/alexellis/arkade/pkg/config"
 	"github.com/alexellis/arkade/pkg/env"
-	execute "github.com/alexellis/go-execute/pkg/v1"
+	execute "github.com/alexellis/go-execute/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -167,13 +168,13 @@ func downloadLinkerd(userPath, arch, clientOS, version string) error {
 
 func linkerdCli(parts ...string) (execute.ExecResult, error) {
 	task := execute.ExecTask{
-		Command:     fmt.Sprintf("%s", env.LocalBinary("linkerd2", "")),
+		Command:     env.LocalBinary("linkerd2", ""),
 		Args:        parts,
 		Env:         os.Environ(),
 		StreamStdio: true,
 	}
 
-	res, err := task.Execute()
+	res, err := task.Execute(context.Background())
 
 	if err != nil {
 		return res, err

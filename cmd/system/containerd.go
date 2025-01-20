@@ -5,6 +5,7 @@ package system
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 	"github.com/alexellis/arkade/pkg/archive"
 	"github.com/alexellis/arkade/pkg/env"
 	"github.com/alexellis/arkade/pkg/get"
-	execute "github.com/alexellis/go-execute/pkg/v1"
+	execute "github.com/alexellis/go-execute/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -118,7 +119,7 @@ func MakeInstallContainerd() *cobra.Command {
 
 		tempDirName := os.TempDir() + "/containerd"
 
-		if err := archive.UntarNested(f, tempDirName); err != nil {
+		if err := archive.UntarNested(f, tempDirName, true, false); err != nil {
 			return err
 		}
 
@@ -149,14 +150,19 @@ func MakeInstallContainerd() *cobra.Command {
 				return err
 			}
 
-			content, err := io.ReadAll(response.Body)
+			defer response.Body.Close()
+
+			body, err := io.ReadAll(response.Body)
 			if err != nil {
 				return err
 			}
+			if response.StatusCode != http.StatusOK {
+				return fmt.Errorf("error fetching systemd unit file, status code: %d, body: %s", response.StatusCode, string(body))
+			}
 
-			content = bytes.ReplaceAll(content, []byte("/usr/local/bin/containerd"), []byte(installPath+"/containerd"))
+			body = bytes.ReplaceAll(body, []byte("/usr/local/bin/containerd"), []byte(installPath+"/containerd"))
 
-			if err := createSystemdUnit(systemdUnitName, content); err != nil {
+			if err := createSystemdUnit(systemdUnitName, body); err != nil {
 				return err
 			}
 		}
@@ -179,7 +185,7 @@ func createSystemdUnit(systemdUnitName string, content []byte) error {
 		Args:        []string{"daemon-reload"},
 		StreamStdio: false,
 	}
-	if _, err := taskReload.Execute(); err != nil {
+	if _, err := taskReload.Execute(context.Background()); err != nil {
 		return err
 	}
 
@@ -189,7 +195,7 @@ func createSystemdUnit(systemdUnitName string, content []byte) error {
 		StreamStdio: false,
 	}
 
-	result, err := taskEnable.Execute()
+	result, err := taskEnable.Execute(context.Background())
 	if err != nil {
 		return err
 	}
