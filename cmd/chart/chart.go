@@ -11,12 +11,11 @@ import (
 func MakeChart() *cobra.Command {
 
 	command := &cobra.Command{
-		Use:     "chart",
-		Short:   "Chart utilities",
-		Long:    `Utilities for Helm charts.`,
-		Aliases: []string{"c"},
-		Example: `  arkade chart verify --help
-`,
+		Use:          "chart",
+		Short:        "Chart utilities",
+		Long:         `Utilities for Helm charts.`,
+		Aliases:      []string{"c"},
+		Example:      `  arkade chart verify --help`,
 		SilenceUsage: true,
 	}
 
@@ -26,6 +25,7 @@ func MakeChart() *cobra.Command {
 
 	command.AddCommand(MakeVerify())
 	command.AddCommand(MakeUpgrade())
+	command.AddCommand(MakeBump())
 
 	return command
 }

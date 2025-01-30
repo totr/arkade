@@ -6,11 +6,12 @@ import (
 	"reflect"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"github.com/alexellis/arkade/pkg/config"
+	"gopkg.in/yaml.v3"
 )
 
 // ValuesMap is an alias for map[string]interface{}
-type ValuesMap map[interface{}]interface{}
+type ValuesMap map[string]interface{}
 
 // Load a values.yaml file and return a ValuesMap with the keys
 // and values from the YAML file as a map[string]interface{}
@@ -22,9 +23,21 @@ func Load(yamlPath string) (ValuesMap, error) {
 
 	values := ValuesMap{}
 
-	err = yaml.Unmarshal(body, &values)
-	if err != nil {
+	if err = yaml.Unmarshal(body, &values); err != nil {
 		return nil, fmt.Errorf("unable to parse %s, error: %s", yamlPath, err)
+	}
+
+	return values, nil
+}
+
+// LoadFrom loads a values.yaml snippet from memory and
+// returns a ValuesMap with the keys and values from the YAML
+func LoadFrom(yamlText string) (ValuesMap, error) {
+
+	values := ValuesMap{}
+
+	if err := yaml.Unmarshal([]byte(yamlText), &values); err != nil {
+		return nil, fmt.Errorf("unable to parse %s, error: %s", yamlText, err)
 	}
 
 	return values, nil
@@ -47,17 +60,36 @@ func ReplaceValuesInHelmValuesFile(values map[string]string, yamlPath string) (s
 
 // FilterImagesUptoDepth takes a ValuesMap and returns a map of images that
 // were found upto max level
-func FilterImagesUptoDepth(values ValuesMap, depth int) map[string]string {
+func FilterImagesUptoDepth(values ValuesMap, depth int, path string, cfg *config.ArkadeConfig) map[string]string {
 	images := map[string]string{}
-
 	for k, v := range values {
+
+		prefix := ""
+		if len(path) > 0 {
+			prefix = path + "."
+		}
+
 		if k == "image" && reflect.TypeOf(v).Kind() == reflect.String {
-			imageUrl := v.(string)
-			images[imageUrl] = imageUrl
+			fullPath := prefix + k
+
+			ignoreItem := false
+			if cfg != nil {
+				for _, ignore := range cfg.Ignore {
+					if fullPath == ignore {
+						ignoreItem = true
+						break
+					}
+				}
+			}
+
+			if !ignoreItem {
+				imageUrl := v.(string)
+				images[imageUrl] = imageUrl
+			}
 		}
 
 		if c, ok := v.(ValuesMap); ok && depth > 0 {
-			images = mergeMaps(images, FilterImagesUptoDepth(c, depth-1))
+			images = mergeMaps(images, FilterImagesUptoDepth(c, depth-1, prefix+k, cfg))
 		}
 	}
 	return images

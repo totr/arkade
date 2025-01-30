@@ -7,3 +7,5 @@ kubeconfig
 mc
 /arkade-*
 /faas-cli*
+test.out
+docker-compose.yaml
